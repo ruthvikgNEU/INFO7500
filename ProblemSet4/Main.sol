@@ -33,11 +33,11 @@ contract HelloWorld {
         return _decimals;
     }
 
-    function transfer(address to, uint256 amount) external {
+    function transfer(address to, uint256 amount) internal {
         _transfer(msg.sender, to, amount);
     }
 
-    function balanceOf(address owner) external view returns (uint256) {
+    function balanceOf(address owner) internal view returns (uint256) {
         return _balanceOf(owner);
     }
 
