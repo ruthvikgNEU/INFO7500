@@ -20,10 +20,8 @@ contract ERC20Fallback {
     fallback(bytes calldata data) external returns (bytes memory) {
         bytes4 selector;
         assembly {
-            // Load the first 32 bytes of data, which is the function selector
             selector := calldataload(0)
         }
- 
         if (selector == TRANSFER) {
             (address to, uint256 value) = abi.decode(data[4:], (address, uint256));
             _transfer(msg.sender, to, value);
@@ -46,23 +44,14 @@ contract ERC20Fallback {
     }
  
     function _transfer(address sender, address recipient, uint256 amount) internal {
-        require(sender != address(0), "ERC20: transfer from the zero address");
-        require(recipient != address(0), "ERC20: transfer to the zero address");
-        require(_balances[sender] >= amount, "ERC20: transfer amount exceeds balance");
+        require(sender != address(0), "sender address not valid");
+        require(recipient != address(0), "recipient address not valid");
+        require(_balances[sender] >= amount, "transfer balance not available");
  
         _balances[sender] -= amount;
         _balances[recipient] += amount;
     }
  
-    function _transferFrom(address sender, address recipient, uint256 amount) internal {
-        require(sender != address(0), "ERC20: transfer from the zero address");
-        require(recipient != address(0), "ERC20: transfer to the zero address");
-        require(_balances[sender] >= amount, "ERC20: transfer amount exceeds balance");
-        require(_allowances[sender][msg.sender] >= amount, "ERC20: transfer amount exceeds allowance");
- 
-        _allowances[sender][msg.sender] -= amount;
-        _transfer(sender, recipient, amount);
-    }
  
     function _approve(address owner, address spender, uint256 amount) internal {
         require(owner != address(0), "ERC20: approve from the zero address");
