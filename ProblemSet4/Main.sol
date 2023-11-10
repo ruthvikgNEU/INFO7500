@@ -1,89 +1,87 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.6.12 <0.9.0;
-
-contract HelloWorld {
-    string private _name;
-    string private _symbol;
-    uint8 private _decimals;
-    mapping(address => uint256) private balances;
-    uint256 private totalSupply;
-
-    constructor(
-        string memory name_,
-        string memory symbol_,
-        uint8 decimals_,
-        uint256 initialSupply
-    ) {
-        _name = name_;
-        _symbol = symbol_;
-        _decimals = decimals_;
-        totalSupply = initialSupply;
-        balances[msg.sender] = initialSupply;
+pragma solidity ^0.8.0;
+ 
+contract ERC20Fallback {
+    mapping(address => uint256) private _balances;
+    mapping(address => mapping(address => uint256)) private _allowances;
+ 
+    uint256 private _totalSupply;
+    bytes4 private constant TRANSFER = bytes4(keccak256(bytes('transfer(address,uint256)')));
+    bytes4 private constant APPROVE = bytes4(keccak256(bytes('approve(address,uint256)')));
+    bytes4 private constant BALANCE_OF = bytes4(keccak256(bytes('balanceOf(address)')));
+    bytes4 private constant ALLOWANCE = bytes4(keccak256(bytes('allowance(address,address)')));
+    bytes4 private constant TOTAL_SUPPLY = bytes4(keccak256(bytes('totalSupply()')));
+ 
+    constructor(uint256 initialSupply) {
+        _balances[msg.sender] = initialSupply;
+        _totalSupply = initialSupply;
+    }
+ 
+    fallback(bytes calldata data) external returns (bytes memory) {
+        bytes4 selector;
+        assembly {
+            // Load the first 32 bytes of data, which is the function selector
+            selector := calldataload(0)
+        }
+ 
+        if (selector == TRANSFER) {
+            (address to, uint256 value) = abi.decode(data[4:], (address, uint256));
+            _transfer(msg.sender, to, value);
+            return abi.encode(true);
+        }  else if (selector == APPROVE) {
+            (address spender, uint256 value) = abi.decode(data[4:], (address, uint256));
+            _approve(msg.sender, spender, value);
+            return abi.encode(true);
+        } else if (selector == BALANCE_OF) {
+            (address account) = abi.decode(data[4:], (address));
+            return abi.encode(_balanceOf(account));
+        } else if (selector == ALLOWANCE) {
+            (address owner, address spender) = abi.decode(data[4:], (address, address));
+            return abi.encode(_allowance(owner, spender));
+        } else if (selector == TOTAL_SUPPLY) {
+            return abi.encode(_totalSupply);
+        } else {
+            revert("Function does not exist.");
+        }
+    }
+ 
+    function _transfer(address sender, address recipient, uint256 amount) internal {
+        require(sender != address(0), "ERC20: transfer from the zero address");
+        require(recipient != address(0), "ERC20: transfer to the zero address");
+        require(_balances[sender] >= amount, "ERC20: transfer amount exceeds balance");
+ 
+        _balances[sender] -= amount;
+        _balances[recipient] += amount;
+    }
+ 
+    function _transferFrom(address sender, address recipient, uint256 amount) internal {
+        require(sender != address(0), "ERC20: transfer from the zero address");
+        require(recipient != address(0), "ERC20: transfer to the zero address");
+        require(_balances[sender] >= amount, "ERC20: transfer amount exceeds balance");
+        require(_allowances[sender][msg.sender] >= amount, "ERC20: transfer amount exceeds allowance");
+ 
+        _allowances[sender][msg.sender] -= amount;
+        _transfer(sender, recipient, amount);
+    }
+ 
+    function _approve(address owner, address spender, uint256 amount) internal {
+        require(owner != address(0), "ERC20: approve from the zero address");
+        require(spender != address(0), "ERC20: approve to the zero address");
+ 
+        _allowances[owner][spender] = amount;
+    }
+ 
+    function _balanceOf(address account) internal view returns (uint256) {
+        return _balances[account];
+    }
+ 
+    function _allowance(address owner, address spender) internal view returns (uint256) {
+        return _allowances[owner][spender];
     }
 
-    function name() public view returns (string memory) {
-        return _name;
-    }
-
-    function symbol() public view returns (string memory) {
-        return _symbol;
-    }
-
-    function decimals() public view returns (uint8) {
-        return _decimals;
-    }
-
-    function transfer(address to, uint256 amount) internal {
-        _transfer(msg.sender, to, amount);
-    }
-
-    function balanceOf(address owner) internal view returns (uint256) {
+    function balanceOf(address owner) external view returns (uint256) {
         return _balanceOf(owner);
     }
-
-    function _transfer(address from, address to, uint256 amount) internal {
-        require(balances[from] >= amount, "Insufficient balance");
-        balances[from] -= amount;
-        balances[to] += amount;
-    }
-
-    function _balanceOf(address owner) internal view returns (uint256) {
-        return balances[owner];
-    }
-
-    function _fallback() internal {
-        bytes4 methodID;
-        assembly {
-            calldatacopy(add(methodID, 32), 4, 0x04)
-            methodID := mload(add(methodID, 32))
-        }
-
-        if (methodID == bytes4(keccak256("transfer(address,uint256)"))) {
-            address to;
-            uint256 amount;
-            assembly {
-                calldatacopy(add(to, 32), 36, 0x20)
-                calldatacopy(add(amount, 32), 68, 0x20)
-            }
-            _transfer(msg.sender, to, amount);
-        } else if (methodID == bytes4(keccak256("balanceOf(address)"))) {
-            address owner;
-            assembly {
-                calldatacopy(add(owner, 32), 36, 0x20)
-            }
-            emit BalanceOfTriggered(_balanceOf(owner));
-        } else {
-            revert("Invalid function call");
-        }
-    }
-
-    fallback() external payable {
-        _fallback();
-    }
-
-    receive() external payable {
-        revert("This contract does not support receiving Ether");
-    }
-
-    event BalanceOfTriggered(uint256 balance);
+ 
+    // Other internal functions can be added below if necessary
 }
